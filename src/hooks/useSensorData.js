@@ -14,36 +14,63 @@ const toNumber = (value) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const normalizePayload = (raw) => {
+  if (!raw || typeof raw !== 'object') {
+    return initialSensorState;
+  }
+
+  const data = raw.latest && typeof raw.latest === 'object' ? raw.latest : raw;
+
+  return {
+    air_quality: toNumber(data.air_quality ?? data.airQuality ?? data.aqi),
+    humidity: toNumber(data.humidity ?? data.hum),
+    sound: toNumber(data.sound ?? data.breathingSound ?? data.noise),
+    temperature: toNumber(data.temperature ?? data.temp ?? data.temperature_c)
+  };
+};
+
+const hasAnySensorValue = (data) => {
+  return [data.air_quality, data.humidity, data.sound, data.temperature].some((value) => value !== 0);
+};
+
 const useSensorData = () => {
   const [sensorData, setSensorData] = useState(initialSensorState);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const sensorsRef = ref(realtimeDb, 'RespiraGuard/sensors');
+    const primaryRef = ref(realtimeDb, 'RespiraGuard/sensors');
+    const fallbackRef = ref(realtimeDb, 'sensors');
 
-    const unsubscribe = onValue(
-      sensorsRef,
-      (snapshot) => {
-        const data = snapshot.val() || {};
-
-        setSensorData({
-          air_quality: toNumber(data.air_quality),
-          humidity: toNumber(data.humidity),
-          sound: toNumber(data.sound),
-          temperature: toNumber(data.temperature)
-        });
-
-        setLoading(false);
-        setError(null);
-      },
-      (firebaseError) => {
-        setError(firebaseError.message || 'Unable to read sensor data');
-        setLoading(false);
+    const handleSnapshot = (snapshot) => {
+      const normalized = normalizePayload(snapshot.val());
+      if (hasAnySensorValue(normalized)) {
+        setSensorData(normalized);
       }
-    );
+      setLoading(false);
+      setError(null);
+    };
 
-    return () => unsubscribe();
+    const handleError = (firebaseError) => {
+      setError(firebaseError.message || 'Unable to read sensor data');
+      setLoading(false);
+    };
+
+    const unsubscribePrimary = onValue(primaryRef, handleSnapshot, handleError);
+    const unsubscribeFallback = onValue(fallbackRef, (snapshot) => {
+      const normalized = normalizePayload(snapshot.val());
+      setSensorData((previous) => {
+        if (!hasAnySensorValue(previous) && hasAnySensorValue(normalized)) {
+          return normalized;
+        }
+        return previous;
+      });
+    });
+
+    return () => {
+      unsubscribePrimary();
+      unsubscribeFallback();
+    };
   }, []);
 
   return {

@@ -33,7 +33,7 @@ const LiveChart = () => {
     <section className="rounded-xl bg-white p-6 shadow-md transition-all duration-300">
       <header className="mb-4">
         <h2 className="text-lg font-semibold text-slate-900">Live Respiratory Monitoring</h2>
-        <p className="mt-1 text-sm text-slate-500">Streaming updates from Firebase Realtime Database</p>
+        <p className="mt-1 text-sm text-slate-500">Streaming updates in Realtime</p>
       </header>
 
       <div className="h-80 w-full">

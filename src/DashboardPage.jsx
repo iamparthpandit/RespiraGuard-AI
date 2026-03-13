@@ -19,6 +19,9 @@ import ChartsSection from './components/ChartsSection';
 import AIInsightCard from './components/AIInsightCard';
 import PatientProfileCard from './components/PatientProfileCard';
 import SessionTable from './components/SessionTable';
+import SensorDashboard from './components/SensorDashboard';
+import LiveChart from './components/LiveChart';
+import useSensorData from './hooks/useSensorData';
 
 const formatDisplayDate = (value) => {
   if (!value) return 'N/A';
@@ -107,6 +110,13 @@ const DashboardPage = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [sessions, setSessions] = useState([]);
+  const {
+    air_quality,
+    humidity,
+    sound,
+    temperature,
+    loading: liveLoading
+  } = useSensorData();
 
   useEffect(() => {
     if (!user) {
@@ -158,15 +168,15 @@ const DashboardPage = ({ user }) => {
     const profileMetrics = profile?.metrics || {};
 
     return {
-      airQualityIndex: latest?.airQualityIndex ?? profileMetrics.airQualityIndex ?? 72,
-      temperature: latest?.temperature ?? profileMetrics.temperature ?? 0,
-      humidity: latest?.humidity ?? profileMetrics.humidity ?? 0,
-      breathingSoundIntensity: latest?.breathingSoundIntensity ?? profileMetrics.breathingSoundIntensity ?? 0,
+      airQualityIndex: !liveLoading ? air_quality : (latest?.airQualityIndex ?? profileMetrics.airQualityIndex ?? 72),
+      temperature: !liveLoading ? temperature : (latest?.temperature ?? profileMetrics.temperature ?? 0),
+      humidity: !liveLoading ? humidity : (latest?.humidity ?? profileMetrics.humidity ?? 0),
+      breathingSoundIntensity: !liveLoading ? sound : (latest?.breathingSoundIntensity ?? profileMetrics.breathingSoundIntensity ?? 0),
       respiratoryRiskLevel: latest?.riskLevel ?? profileMetrics.respiratoryRiskLevel ?? 'Moderate',
       dailyBreathingScore: latest?.breathingScore ?? profileMetrics.dailyBreathingScore ?? 84,
       sessionsRecorded: sessions.length
     };
-  }, [profile, sessions]);
+  }, [air_quality, humidity, liveLoading, profile, sessions, sound, temperature]);
 
   const profileWithLatestSession = useMemo(() => {
     return {
@@ -202,6 +212,10 @@ const DashboardPage = ({ user }) => {
 
         <main className="space-y-6 px-4 py-6 sm:px-6 lg:px-8">
           <section>
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700 live-badge-glow">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 live-dot-glow" />
+              <span>Live Sensor Stream</span>
+            </div>
             <h2 className="text-2xl font-semibold tracking-tight text-slate-800">Welcome back, {userName}!</h2>
             <p className="mt-1 text-sm text-slate-500">
               Monitor your respiratory health insights and AI predictions.
@@ -209,6 +223,18 @@ const DashboardPage = ({ user }) => {
           </section>
 
           <SummaryCards metrics={derivedMetrics} />
+
+          <section className="space-y-4 rounded-2xl bg-white/70 p-4 shadow-[0_10px_30px_rgba(15,23,42,0.06)] sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-lg font-semibold text-slate-800">ESP32 Live Sensor Add-on</h3>
+              <span className="text-xs font-medium text-emerald-700">
+                {liveLoading ? 'Connecting to Firebase stream...' : 'Streaming in real time'}
+              </span>
+            </div>
+            <SensorDashboard />
+            <LiveChart />
+          </section>
+
           <ChartsSection sessions={sessions} />
 
           <section className="grid gap-4 xl:grid-cols-2">
