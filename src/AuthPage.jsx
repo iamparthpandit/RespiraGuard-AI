@@ -4,35 +4,29 @@ import { auth, db } from './firebase';
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  sendPasswordResetEmail,
-  signInWithPopup,
-  GoogleAuthProvider,
-  setPersistence,
-  browserLocalPersistence,
-  browserSessionPersistence
+  sendPasswordResetEmail
 } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, serverTimestamp, setDoc } from 'firebase/firestore';
+
+const normalizeEmail = (email) => email.trim().toLowerCase();
 
 const getAuthErrorMessage = (err) => {
   const code = err?.code || '';
 
   switch (code) {
     case 'auth/operation-not-allowed':
-      return 'Email/Password sign-up is disabled in Firebase. Enable it in Firebase Console > Authentication > Sign-in method.';
+      return 'Email/Password is disabled in Firebase. Enable it in Authentication > Sign-in method.';
     case 'auth/email-already-in-use':
-      return 'This email is already registered. Please sign in instead.';
+      return 'This email is already registered. Please sign in.';
     case 'auth/invalid-email':
       return 'Please enter a valid email address.';
-    case 'auth/weak-password':
-      return 'Password is too weak. Use at least 6 characters.';
-    case 'auth/invalid-credential':
-      return 'Invalid credentials. Please check your email and password.';
     case 'auth/user-not-found':
-      return 'No account found with this email.';
     case 'auth/wrong-password':
-      return 'Incorrect password. Please try again.';
-    case 'auth/popup-closed-by-user':
-      return 'Google sign-in was cancelled before completion.';
+    case 'auth/invalid-credential':
+    case 'auth/invalid-login-credentials':
+      return 'Incorrect email or password.';
+    case 'auth/weak-password':
+      return 'Password must be at least 6 characters.';
     default:
       return err?.message || 'Something went wrong. Please try again.';
   }
@@ -40,102 +34,131 @@ const getAuthErrorMessage = (err) => {
 
 const AuthPage = () => {
   const navigate = useNavigate();
-  const [mode, setMode] = useState('login'); // 'login', 'signup', 'forgot'
+  const [mode, setMode] = useState('login');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
     confirmPassword: ''
   });
-  const [rememberMe, setRememberMe] = useState(false);
-  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const createDefaultUserData = async (user, fullName, email) => {
+    const patientId = `RG-${new Date().getFullYear()}-${user.uid.slice(0, 4).toUpperCase()}`;
+
+    await setDoc(
+      doc(db, 'users', user.uid),
+      {
+        fullName,
+        role: 'Patient',
+        email,
+        patientId,
+        respiratoryCondition: 'Mild Asthma',
+        metrics: {
+          airQualityIndex: 72,
+          temperature: 29,
+          humidity: 58,
+          breathingSoundIntensity: 42,
+          respiratoryRiskLevel: 'Moderate',
+          dailyBreathingScore: 84,
+          sessionsRecorded: 2
+        },
+        aiInsight: {
+          riskLevel: 'Moderate',
+          lines: [
+            'Current risk level is Moderate.',
+            'Air quality levels are elevated today.',
+            'Avoid outdoor pollution and monitor breathing regularly.'
+          ]
+        },
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      },
+      { merge: true }
+    );
+
+    await Promise.all([
+      addDoc(collection(db, 'users', user.uid, 'sessions'), {
+        airQualityIndex: 72,
+        temperature: 29,
+        humidity: 58,
+        breathingSoundIntensity: 42,
+        breathingScore: 84,
+        riskLevel: 'Low',
+        status: 'Normal',
+        createdAt: new Date('2026-03-12T10:00:00')
+      }),
+      addDoc(collection(db, 'users', user.uid, 'sessions'), {
+        airQualityIndex: 110,
+        temperature: 31,
+        humidity: 64,
+        breathingSoundIntensity: 69,
+        breathingScore: 68,
+        riskLevel: 'Moderate',
+        status: 'Warning',
+        createdAt: new Date('2026-03-10T10:00:00')
+      })
+    ]);
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    setMessage('');
+
     try {
-      await setPersistence(
-        auth,
-        rememberMe ? browserLocalPersistence : browserSessionPersistence
-      );
-      await signInWithEmailAndPassword(auth, formData.email, formData.password);
-      navigate('/dashboard');
-      // Redirect to dashboard or handle success
+      const email = normalizeEmail(formData.email);
+      await signInWithEmailAndPassword(auth, email, formData.password);
+      navigate('/dashboard', { replace: true });
     } catch (err) {
-      setError(getAuthErrorMessage(err));
+      setMessage(getAuthErrorMessage(err));
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleSignup = async (e) => {
     e.preventDefault();
+
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+      setMessage('Passwords do not match.');
       return;
     }
+
     setLoading(true);
-    setError('');
+    setMessage('');
+
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
-      const user = userCredential.user;
-      // Create user profile in Firestore
-      await setDoc(doc(db, 'users', user.uid), {
-        uid: user.uid,
-        name: formData.name,
-        email: formData.email,
-        createdAt: new Date()
-      });
-      navigate('/dashboard');
-      // Redirect or handle success
+      const email = normalizeEmail(formData.email);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, formData.password);
+      const fullName = formData.name.trim() || 'RespiraGuard User';
+      await createDefaultUserData(userCredential.user, fullName, email);
+      navigate('/dashboard', { replace: true });
     } catch (err) {
-      setError(getAuthErrorMessage(err));
+      setMessage(getAuthErrorMessage(err));
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handlePasswordReset = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
-    try {
-      await sendPasswordResetEmail(auth, formData.email);
-      setError('Reset link sent to your email');
-    } catch (err) {
-      setError(getAuthErrorMessage(err));
-    }
-    setLoading(false);
-  };
+    setMessage('');
 
-  const handleGoogleSignIn = async () => {
-    const provider = new GoogleAuthProvider();
     try {
-      await setPersistence(
-        auth,
-        rememberMe ? browserLocalPersistence : browserSessionPersistence
-      );
-      const userCredential = await signInWithPopup(auth, provider);
-      const user = userCredential.user;
-      await setDoc(
-        doc(db, 'users', user.uid),
-        {
-          uid: user.uid,
-          name: user.displayName || '',
-          email: user.email || '',
-          photoURL: user.photoURL || '',
-          updatedAt: new Date()
-        },
-        { merge: true }
-      );
-      navigate('/dashboard');
-      // Handle success
+      const email = normalizeEmail(formData.email);
+      await sendPasswordResetEmail(auth, email);
+      setMessage('Password reset link sent to your email.');
     } catch (err) {
-      setError(getAuthErrorMessage(err));
+      setMessage(getAuthErrorMessage(err));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -146,41 +169,41 @@ const AuthPage = () => {
         loop
         muted
         playsInline
-        className="absolute inset-0 w-full h-full object-cover"
+        className="absolute inset-0 h-full w-full object-cover"
       >
         <source src="/src/assets/lung-animation.mp4" type="video/mp4" />
       </video>
-      <div className="absolute inset-0 bg-white/40 backdrop-blur-sm"></div>
+      <div className="absolute inset-0 bg-white/40 backdrop-blur-sm" />
 
       <div className="relative z-10 min-h-screen flex flex-col md:grid md:grid-cols-2">
         <div className="flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-white/80 backdrop-blur-md rounded-xl shadow-lg p-8">
-            <div className="text-center mb-6">
+          <div className="max-w-md w-full rounded-xl bg-white/85 p-8 shadow-lg backdrop-blur-md">
+            <div className="mb-6 text-center">
               <h1 className="text-2xl font-bold text-gray-900">
                 {mode === 'login' ? 'Welcome Back' : mode === 'signup' ? 'Create Account' : 'Reset Password'}
               </h1>
-              <p className="text-gray-600 mt-2">
+              <p className="mt-2 text-gray-600">
                 {mode === 'login'
-                  ? 'Sign in to monitor your respiratory health insights.'
+                  ? 'Sign in with your email and password.'
                   : mode === 'signup'
-                  ? 'Join RespiraGuard to start monitoring.'
-                  : 'Enter your email to reset your password.'}
+                  ? 'Create your account using email and password.'
+                  : 'Enter your email to receive a reset link.'}
               </p>
             </div>
 
-            {error && <p className="text-red-500 text-center mb-4">{error}</p>}
+            {message && <p className="mb-4 text-center text-sm text-red-600">{message}</p>}
 
             <form onSubmit={mode === 'login' ? handleLogin : mode === 'signup' ? handleSignup : handlePasswordReset}>
               {mode === 'signup' && (
                 <div className="mb-4">
-                  <label className="block text-gray-700 mb-2">Full Name</label>
-                  <div className="flex items-center border rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500">
+                  <label className="mb-2 block text-gray-700">Full Name</label>
+                  <div className="rounded-lg border px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500">
                     <input
                       type="text"
                       name="name"
                       value={formData.name}
                       onChange={handleInputChange}
-                      className="w-full outline-none bg-transparent"
+                      className="w-full bg-transparent outline-none"
                       required
                     />
                   </div>
@@ -188,14 +211,14 @@ const AuthPage = () => {
               )}
 
               <div className="mb-4">
-                <label className="block text-gray-700 mb-2">Email</label>
-                <div className="flex items-center border rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500">
+                <label className="mb-2 block text-gray-700">Email</label>
+                <div className="rounded-lg border px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500">
                   <input
                     type="email"
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className="w-full outline-none bg-transparent"
+                    className="w-full bg-transparent outline-none"
                     required
                   />
                 </div>
@@ -204,14 +227,14 @@ const AuthPage = () => {
               {mode !== 'forgot' && (
                 <>
                   <div className="mb-4">
-                    <label className="block text-gray-700 mb-2">Password</label>
-                    <div className="flex items-center border rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500">
+                    <label className="mb-2 block text-gray-700">Password</label>
+                    <div className="rounded-lg border px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500">
                       <input
                         type="password"
                         name="password"
                         value={formData.password}
                         onChange={handleInputChange}
-                        className="w-full outline-none bg-transparent"
+                        className="w-full bg-transparent outline-none"
                         required
                       />
                     </div>
@@ -219,15 +242,14 @@ const AuthPage = () => {
 
                   {mode === 'signup' && (
                     <div className="mb-4">
-                      <label className="block text-gray-700 mb-2">Confirm Password</label>
-                      <div className="flex items-center border rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500">
-
+                      <label className="mb-2 block text-gray-700">Confirm Password</label>
+                      <div className="rounded-lg border px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500">
                         <input
                           type="password"
                           name="confirmPassword"
                           value={formData.confirmPassword}
                           onChange={handleInputChange}
-                          className="w-full outline-none bg-transparent"
+                          className="w-full bg-transparent outline-none"
                           required
                         />
                       </div>
@@ -237,17 +259,15 @@ const AuthPage = () => {
               )}
 
               {mode === 'login' && (
-                <div className="flex items-center justify-between mb-4">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={rememberMe}
-                      onChange={(e) => setRememberMe(e.target.checked)}
-                      className="mr-2"
-                    />
-                    Remember me
-                  </label>
-                  <button type="button" onClick={() => setMode('forgot')} className="text-blue-500 hover:underline">
+                <div className="mb-4 text-right">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMessage('');
+                      setMode('forgot');
+                    }}
+                    className="text-blue-500 hover:underline"
+                  >
                     Forgot Password?
                   </button>
                 </div>
@@ -255,31 +275,44 @@ const AuthPage = () => {
 
               <button
                 type="submit"
-                className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg mb-4"
+                className="mb-4 w-full rounded-lg bg-blue-500 py-2 text-white hover:bg-blue-600 disabled:opacity-60"
                 disabled={loading}
               >
-                {loading ? 'Loading...' : mode === 'login' ? 'Sign In' : mode === 'signup' ? 'Create Account' : 'Send Reset Link'}
+                {loading
+                  ? 'Please wait...'
+                  : mode === 'login'
+                  ? 'Sign In'
+                  : mode === 'signup'
+                  ? 'Create Account'
+                  : 'Send Reset Link'}
               </button>
             </form>
 
             {mode === 'login' && (
-              <>
-                <button onClick={handleGoogleSignIn} className="w-full border border-gray-300 py-2 rounded-lg mb-4">
-                  Sign in with Google
+              <p className="text-center">
+                Do not have an account?{' '}
+                <button
+                  onClick={() => {
+                    setMessage('');
+                    setMode('signup');
+                  }}
+                  className="text-blue-500 hover:underline"
+                >
+                  Sign Up
                 </button>
-                <p className="text-center">
-                  Don't have an account?{' '}
-                  <button onClick={() => setMode('signup')} className="text-blue-500 hover:underline">
-                    Sign Up
-                  </button>
-                </p>
-              </>
+              </p>
             )}
 
             {mode === 'signup' && (
               <p className="text-center">
                 Already have an account?{' '}
-                <button onClick={() => setMode('login')} className="text-blue-500 hover:underline">
+                <button
+                  onClick={() => {
+                    setMessage('');
+                    setMode('login');
+                  }}
+                  className="text-blue-500 hover:underline"
+                >
                   Sign In
                 </button>
               </p>
@@ -287,7 +320,13 @@ const AuthPage = () => {
 
             {mode === 'forgot' && (
               <p className="text-center">
-                <button onClick={() => setMode('login')} className="text-blue-500 hover:underline">
+                <button
+                  onClick={() => {
+                    setMessage('');
+                    setMode('login');
+                  }}
+                  className="text-blue-500 hover:underline"
+                >
                   Back to Sign In
                 </button>
               </p>

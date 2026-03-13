@@ -13,7 +13,7 @@ const menuItems = [
 const Sidebar = ({ isOpen, onClose }) => {
   return (
     <>
-      <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white px-5 py-6 lg:flex lg:flex-col">
+      <aside className="fixed left-0 top-0 hidden h-screen w-64 shrink-0 border-r border-slate-200 bg-white px-5 py-6 lg:flex lg:flex-col">
         <div className="mb-8">
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">RespiraGuard</h1>
           <p className="mt-1 text-xs font-medium text-slate-500">AI Respiratory Platform</p>
