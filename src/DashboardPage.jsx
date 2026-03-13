@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   addDoc,
   collection,
@@ -26,6 +27,9 @@ import {
   generateAIRecommendation,
   getRespiratoryPrediction
 } from './services/aiPredictionService';
+
+// Single user ID for this single-user application
+const SINGLE_USER_ID = 'respiraguard-user-001';
 
 const formatDuration = (totalSeconds) => {
   const safeSeconds = Math.max(0, Math.floor(totalSeconds));
@@ -69,15 +73,12 @@ const formatDisplayDate = (value) => {
   });
 };
 
-const buildDefaultProfile = (firebaseUser) => {
-  const fullName = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'RespiraGuard User';
-  const patientId = `RG-${new Date().getFullYear()}-${firebaseUser.uid.slice(0, 4).toUpperCase()}`;
-
+const buildDefaultProfile = () => {
   return {
-    fullName,
+    fullName: 'RespiraGuard User',
     role: 'Patient',
-    email: firebaseUser.email || '',
-    patientId,
+    email: 'patient@respiraguard.local',
+    patientId: 'RG-2026-USER',
     respiratoryCondition: 'Mild Asthma',
     lastMonitoringSession: 'No session yet',
     metrics: {
@@ -102,8 +103,8 @@ const buildDefaultProfile = (firebaseUser) => {
   };
 };
 
-const seedInitialSessions = async (uid) => {
-  const sessionsRef = collection(db, 'users', uid, 'sessions');
+const seedInitialSessions = async () => {
+  const sessionsRef = collection(db, 'users', SINGLE_USER_ID, 'sessions');
   const seedSessions = [
     {
       airQualityIndex: 72,
@@ -131,6 +132,8 @@ const seedInitialSessions = async (uid) => {
 };
 
 const DashboardPage = ({ user }) => {
+  const navigate = useNavigate();
+  const effectiveUserId = user?.uid || SINGLE_USER_ID;
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
@@ -153,32 +156,28 @@ const DashboardPage = ({ user }) => {
     loading: liveLoading
   } = useSensorData();
 
+  // Load dashboard data from Firestore using single user ID
   useEffect(() => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
     const loadDashboardData = async () => {
       setLoading(true);
       try {
-        const userRef = doc(db, 'users', user.uid);
+        const userRef = doc(db, 'users', effectiveUserId);
         const userSnapshot = await getDoc(userRef);
 
         if (!userSnapshot.exists()) {
-          const defaultProfile = buildDefaultProfile(user);
+          const defaultProfile = buildDefaultProfile();
           await setDoc(userRef, defaultProfile, { merge: true });
           setProfile({ ...defaultProfile, createdAt: null, updatedAt: null });
         } else {
           setProfile(userSnapshot.data());
         }
 
-        const sessionsRef = collection(db, 'users', user.uid, 'sessions');
+        const sessionsRef = collection(db, 'users', effectiveUserId, 'sessions');
         const sessionsQuery = query(sessionsRef, orderBy('createdAt', 'desc'), limit(20));
         let sessionsSnapshot = await getDocs(sessionsQuery);
 
         if (sessionsSnapshot.empty) {
-          await seedInitialSessions(user.uid);
+          await seedInitialSessions();
           sessionsSnapshot = await getDocs(sessionsQuery);
         }
 
@@ -190,13 +189,15 @@ const DashboardPage = ({ user }) => {
         setSessions(sessionData);
       } catch (error) {
         console.error('Failed to load dashboard data:', error);
+        const reason = error?.code ? `${error.code}: ${error.message}` : 'Unable to read from Firestore.';
+        setSessionFeedback(reason);
       } finally {
         setLoading(false);
       }
     };
 
     loadDashboardData();
-  }, [user]);
+  }, [effectiveUserId]);
 
   useEffect(() => {
     if (liveLoading) {
@@ -257,6 +258,7 @@ const DashboardPage = ({ user }) => {
 
   useEffect(() => {
     if (!isSessionActive || !sessionStartedAt) {
+      setSessionElapsedSeconds(0);
       return;
     }
 
@@ -267,7 +269,10 @@ const DashboardPage = ({ user }) => {
 
     tick();
     const intervalId = setInterval(tick, 1000);
-    return () => clearInterval(intervalId);
+    return () => {
+      clearInterval(intervalId);
+      setSessionElapsedSeconds(0);
+    };
   }, [isSessionActive, sessionStartedAt]);
 
   const derivedMetrics = useMemo(() => {
@@ -303,9 +308,14 @@ const DashboardPage = ({ user }) => {
   };
 
   const handleStopSession = async () => {
-    if (!isSessionActive || !sessionStartedAt || !user?.uid) {
+    if (!isSessionActive || !sessionStartedAt) {
       return;
     }
+
+    // Stop session state immediately
+    setIsSessionActive(false);
+    setSessionStartedAt(null);
+    setSessionElapsedSeconds(0);
 
     const endedAtMs = Date.now();
     const durationSeconds = Math.max(1, Math.floor((endedAtMs - sessionStartedAt) / 1000));
@@ -332,7 +342,7 @@ const DashboardPage = ({ user }) => {
     };
 
     try {
-      const sessionsRef = collection(db, 'users', user.uid, 'sessions');
+      const sessionsRef = collection(db, 'users', effectiveUserId, 'sessions');
       const savedDoc = await addDoc(sessionsRef, payload);
 
       setSessions((previous) => [
@@ -345,13 +355,15 @@ const DashboardPage = ({ user }) => {
         ...previous
       ]);
       setSessionFeedback(`Session saved. Duration ${durationLabel}.`);
+      
+      // Navigate to respiratory data page after 1 second
+      setTimeout(() => {
+        navigate('/respiratory-data');
+      }, 1000);
     } catch (error) {
       console.error('Failed to save session:', error);
-      setSessionFeedback('Unable to save session right now. Please try again.');
-    } finally {
-      setIsSessionActive(false);
-      setSessionStartedAt(null);
-      setSessionElapsedSeconds(0);
+      const reason = error?.code ? `${error.code}: ${error.message}` : 'Unable to save session right now. Please try again.';
+      setSessionFeedback(reason);
     }
   };
 
@@ -448,7 +460,7 @@ const DashboardPage = ({ user }) => {
             <PatientProfileCard profile={profileWithLatestSession} />
           </section>
 
-          <SessionTable sessions={sessions} />
+          <SessionTable sessions={sessions} user={user} />
         </main>
       </div>
     </div>

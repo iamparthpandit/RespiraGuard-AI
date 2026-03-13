@@ -1,7 +1,5 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { signOut } from 'firebase/auth';
-import { auth } from '../firebase';
 
 const menuItems = [
   { label: 'Dashboard', path: '/dashboard' },

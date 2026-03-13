@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const statusClass = {
   Normal: 'bg-emerald-100 text-emerald-700',
@@ -27,7 +28,8 @@ const formatDate = (value) => {
   });
 };
 
-const SessionTable = ({ sessions = [] }) => {
+const SessionTable = ({ sessions = [], user }) => {
+  const navigate = useNavigate();
   return (
     <article className="rounded-2xl bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
       <h3 className="text-base font-semibold text-slate-800">Recent Sessions</h3>
@@ -46,7 +48,11 @@ const SessionTable = ({ sessions = [] }) => {
           <tbody>
             {sessions.length > 0 ? (
               sessions.map((session) => (
-                <tr key={session.id} className="border-b border-slate-100 text-slate-700">
+                <tr
+                  key={session.id}
+                  onClick={() => navigate(`/report/${session.id}`)}
+                  className="cursor-pointer border-b border-slate-100 text-slate-700 hover:bg-slate-50 transition"
+                >
                   <td className="px-3 py-3">{formatDate(session.createdAt || session.sessionDate)}</td>
                   <td className="px-3 py-3">{session.airQualityIndex ?? 'N/A'} AQI</td>
                   <td className="px-3 py-3">{session.breathingScore ?? 'N/A'}</td>

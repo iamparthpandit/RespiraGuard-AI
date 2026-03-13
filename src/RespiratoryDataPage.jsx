@@ -11,6 +11,9 @@ import { db } from './firebase';
 import Sidebar from './components/Sidebar';
 import TopNavbar from './components/TopNavbar';
 
+// Single user ID for this single-user application
+const SINGLE_USER_ID = 'respiraguard-user-001';
+
 const formatDisplayDate = (value) => {
   if (!value) return 'N/A';
 
@@ -39,21 +42,18 @@ const statusClass = {
 };
 
 const RespiratoryDataPage = ({ user }) => {
+  const effectiveUserId = user?.uid || SINGLE_USER_ID;
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState([]);
   const navigate = useNavigate();
 
+  // Load sessions from Firestore using single user ID
   useEffect(() => {
-    if (!user?.uid) {
-      setLoading(false);
-      return;
-    }
-
     const loadSessions = async () => {
       setLoading(true);
       try {
-        const sessionsRef = collection(db, 'users', user.uid, 'sessions');
+        const sessionsRef = collection(db, 'users', effectiveUserId, 'sessions');
         const sessionsQuery = query(sessionsRef, orderBy('createdAt', 'desc'), limit(50));
         const sessionsSnapshot = await getDocs(sessionsQuery);
 
@@ -71,11 +71,11 @@ const RespiratoryDataPage = ({ user }) => {
     };
 
     loadSessions();
-  }, [user]);
+  }, [effectiveUserId]);
 
   const userName = useMemo(() => {
-    return user?.displayName || user?.email?.split('@')[0] || 'RespiraGuard User';
-  }, [user]);
+    return 'RespiraGuard User';
+  }, []);
 
   if (loading) {
     return (

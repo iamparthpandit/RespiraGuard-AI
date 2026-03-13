@@ -1,37 +1,37 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { collection, query, where, getDocs } from "firebase/firestore";
-import { db, auth } from "./firebase";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "./firebase";
 import Sidebar from "./components/Sidebar";
 import TopNavbar from "./components/TopNavbar";
 
-const ReportPage = () => {
+// Single user ID for this single-user application
+const SINGLE_USER_ID = 'respiraguard-user-001';
+
+// Static user object for single-user application
+const currentUser = {
+  displayName: 'RespiraGuard User',
+  uid: SINGLE_USER_ID,
+  email: 'patient@respiraguard.local'
+};
+
+const ReportPage = ({ user }) => {
   const { sessionId } = useParams();
   const navigate = useNavigate();
+  const effectiveUserId = user?.uid || SINGLE_USER_ID;
+  const reportUser = {
+    displayName: user?.displayName || currentUser.displayName,
+    uid: effectiveUserId,
+    email: user?.email || currentUser.email
+  };
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
 
-  // Get current user
+  // Fetch session data from Firestore
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-      } else {
-        navigate("/auth");
-      }
-    });
-    return () => unsubscribe();
-  }, [navigate]);
-
-  // Fetch session data
-  useEffect(() => {
-    if (!user) return;
-
     const fetchSession = async () => {
       try {
-        const sessionsRef = collection(db, "users", user.uid, "sessions");
-        const q = query(sessionsRef, where("__name__", "==", sessionId));
+        const sessionsRef = collection(db, "users", effectiveUserId, "sessions");
         const snapshot = await getDocs(sessionsRef);
 
         const data = snapshot.docs.find((doc) => doc.id === sessionId);
@@ -46,7 +46,7 @@ const ReportPage = () => {
     };
 
     fetchSession();
-  }, [user, sessionId]);
+  }, [effectiveUserId, sessionId]);
 
   const formatDate = (timestamp) => {
     if (!timestamp) return "N/A";
@@ -173,7 +173,7 @@ const ReportPage = () => {
                     Patient Name
                   </p>
                   <p className="text-lg text-slate-900">
-                    {user?.displayName || "Patient"}
+                    {reportUser?.displayName || "Patient"}
                   </p>
                 </div>
                 <div>
@@ -181,14 +181,14 @@ const ReportPage = () => {
                     Patient ID
                   </p>
                   <p className="text-lg text-slate-900 font-mono">
-                    {user?.uid?.substring(0, 12)}
+                    {reportUser?.uid?.substring(0, 12)}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-slate-500 font-semibold">
                     Email
                   </p>
-                  <p className="text-lg text-slate-900">{user?.email}</p>
+                  <p className="text-lg text-slate-900">{reportUser?.email}</p>
                 </div>
                 <div>
                   <p className="text-sm text-slate-500 font-semibold">
