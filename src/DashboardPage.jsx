@@ -1,6 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { onAuthStateChanged } from 'firebase/auth';
 import {
   addDoc,
   collection,
@@ -13,7 +11,7 @@ import {
   serverTimestamp,
   setDoc
 } from 'firebase/firestore';
-import { auth, db } from './firebase';
+import { db } from './firebase';
 import Sidebar from './components/Sidebar';
 import TopNavbar from './components/TopNavbar';
 import SummaryCards from './components/SummaryCards';
@@ -104,39 +102,38 @@ const seedInitialSessions = async (uid) => {
   await Promise.all(seedSessions.map((session) => addDoc(sessionsRef, session)));
 };
 
-const DashboardPage = () => {
-  const navigate = useNavigate();
+const DashboardPage = ({ user }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [sessions, setSessions] = useState([]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (!firebaseUser) {
-        navigate('/auth', { replace: true });
-        return;
-      }
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
+    const loadDashboardData = async () => {
       setLoading(true);
       try {
-        const userRef = doc(db, 'users', firebaseUser.uid);
+        const userRef = doc(db, 'users', user.uid);
         const userSnapshot = await getDoc(userRef);
 
         if (!userSnapshot.exists()) {
-          const defaultProfile = buildDefaultProfile(firebaseUser);
+          const defaultProfile = buildDefaultProfile(user);
           await setDoc(userRef, defaultProfile, { merge: true });
           setProfile({ ...defaultProfile, createdAt: null, updatedAt: null });
         } else {
           setProfile(userSnapshot.data());
         }
 
-        const sessionsRef = collection(db, 'users', firebaseUser.uid, 'sessions');
+        const sessionsRef = collection(db, 'users', user.uid, 'sessions');
         const sessionsQuery = query(sessionsRef, orderBy('createdAt', 'desc'), limit(20));
         let sessionsSnapshot = await getDocs(sessionsQuery);
 
         if (sessionsSnapshot.empty) {
-          await seedInitialSessions(firebaseUser.uid);
+          await seedInitialSessions(user.uid);
           sessionsSnapshot = await getDocs(sessionsQuery);
         }
 
@@ -151,10 +148,10 @@ const DashboardPage = () => {
       } finally {
         setLoading(false);
       }
-    });
+    };
 
-    return () => unsubscribe();
-  }, [navigate]);
+    loadDashboardData();
+  }, [user]);
 
   const derivedMetrics = useMemo(() => {
     const latest = sessions[0];
