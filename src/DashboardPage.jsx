@@ -27,6 +27,27 @@ import {
   getRespiratoryPrediction
 } from './services/aiPredictionService';
 
+const formatDuration = (totalSeconds) => {
+  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+  const hours = String(Math.floor(safeSeconds / 3600)).padStart(2, '0');
+  const minutes = String(Math.floor((safeSeconds % 3600) / 60)).padStart(2, '0');
+  const seconds = String(safeSeconds % 60).padStart(2, '0');
+  return `${hours}:${minutes}:${seconds}`;
+};
+
+const deriveSessionStatus = (level) => {
+  if (level === 'High' || level === 'High Risk') return 'Critical';
+  if (level === 'Low' || level === 'Low Risk') return 'Normal';
+  return 'Warning';
+};
+
+const calculateBreathingScore = (sensor) => {
+  const aqiPenalty = Math.min(40, Number(sensor?.air_quality ?? 0) * 0.25);
+  const soundPenalty = Math.min(30, Number(sensor?.sound ?? 0) * 0.3);
+  const humidityPenalty = Math.min(20, Math.abs(Number(sensor?.humidity ?? 50) - 50) * 0.4);
+  return Math.max(0, Math.round(100 - aqiPenalty - soundPenalty - humidityPenalty));
+};
+
 const formatDisplayDate = (value) => {
   if (!value) return 'N/A';
 
@@ -118,6 +139,10 @@ const DashboardPage = ({ user }) => {
   const [aiRecommendation, setAIRecommendation] = useState('');
   const [sensorData, setSensorData] = useState({});
   const [predictionError, setPredictionError] = useState('');
+  const [isSessionActive, setIsSessionActive] = useState(false);
+  const [sessionStartedAt, setSessionStartedAt] = useState(null);
+  const [sessionElapsedSeconds, setSessionElapsedSeconds] = useState(0);
+  const [sessionFeedback, setSessionFeedback] = useState('');
   const lastPredictionAtRef = useRef(0);
   const isPredictingRef = useRef(false);
   const {
@@ -230,6 +255,21 @@ const DashboardPage = ({ user }) => {
     runPrediction();
   }, [air_quality, humidity, liveLoading, sound, temperature]);
 
+  useEffect(() => {
+    if (!isSessionActive || !sessionStartedAt) {
+      return;
+    }
+
+    const tick = () => {
+      const elapsed = Math.max(0, Math.floor((Date.now() - sessionStartedAt) / 1000));
+      setSessionElapsedSeconds(elapsed);
+    };
+
+    tick();
+    const intervalId = setInterval(tick, 1000);
+    return () => clearInterval(intervalId);
+  }, [isSessionActive, sessionStartedAt]);
+
   const derivedMetrics = useMemo(() => {
     const latest = sessions[0];
     const profileMetrics = profile?.metrics || {};
@@ -254,6 +294,66 @@ const DashboardPage = ({ user }) => {
           : profile?.lastMonitoringSession || 'No session yet'
     };
   }, [profile, sessions]);
+
+  const handleStartSession = () => {
+    setSessionFeedback('');
+    setIsSessionActive(true);
+    setSessionStartedAt(Date.now());
+    setSessionElapsedSeconds(0);
+  };
+
+  const handleStopSession = async () => {
+    if (!isSessionActive || !sessionStartedAt || !user?.uid) {
+      return;
+    }
+
+    const endedAtMs = Date.now();
+    const durationSeconds = Math.max(1, Math.floor((endedAtMs - sessionStartedAt) / 1000));
+    const durationLabel = formatDuration(durationSeconds);
+    const resolvedRiskLevel = riskLevel || derivedMetrics.respiratoryRiskLevel || 'Moderate Risk';
+    const resolvedRecommendation =
+      aiRecommendation ||
+      'Air quality exposure and lung indicators suggest moderate respiratory stress. Monitor breathing conditions.';
+
+    const payload = {
+      airQualityIndex: Number(air_quality ?? 0),
+      temperature: Number(temperature ?? 0),
+      humidity: Number(humidity ?? 0),
+      breathingSoundIntensity: Number(sound ?? 0),
+      breathingScore: calculateBreathingScore({ air_quality, humidity, sound, temperature }),
+      riskLevel: resolvedRiskLevel,
+      status: deriveSessionStatus(resolvedRiskLevel),
+      aiRecommendation: resolvedRecommendation,
+      sessionDurationSeconds: durationSeconds,
+      sessionDurationLabel: durationLabel,
+      sessionStartedAt: new Date(sessionStartedAt),
+      sessionEndedAt: new Date(endedAtMs),
+      createdAt: serverTimestamp()
+    };
+
+    try {
+      const sessionsRef = collection(db, 'users', user.uid, 'sessions');
+      const savedDoc = await addDoc(sessionsRef, payload);
+
+      setSessions((previous) => [
+        {
+          id: savedDoc.id,
+          ...payload,
+          createdAt: new Date(),
+          sessionDate: new Date()
+        },
+        ...previous
+      ]);
+      setSessionFeedback(`Session saved. Duration ${durationLabel}.`);
+    } catch (error) {
+      console.error('Failed to save session:', error);
+      setSessionFeedback('Unable to save session right now. Please try again.');
+    } finally {
+      setIsSessionActive(false);
+      setSessionStartedAt(null);
+      setSessionElapsedSeconds(0);
+    }
+  };
 
   if (loading) {
     return (
@@ -298,6 +398,39 @@ const DashboardPage = ({ user }) => {
                 {liveLoading ? 'Connecting to Firebase stream...' : 'Streaming in real time'}
               </span>
             </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Nebulizer Therapy Session</p>
+                <p className="mt-1 text-xl font-semibold text-slate-800">
+                  {isSessionActive ? formatDuration(sessionElapsedSeconds) : '00:00:00'}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleStartSession}
+                  disabled={isSessionActive}
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                >
+                  Start New Session
+                </button>
+                <button
+                  type="button"
+                  onClick={handleStopSession}
+                  disabled={!isSessionActive}
+                  className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-300"
+                >
+                  Stop Session
+                </button>
+              </div>
+            </div>
+
+            {sessionFeedback ? (
+              <p className="text-sm font-medium text-slate-600">{sessionFeedback}</p>
+            ) : null}
+
             <SensorDashboard />
             <LiveChart />
           </section>

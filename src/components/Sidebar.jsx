@@ -1,16 +1,42 @@
 import React from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { signOut } from 'firebase/auth';
+import { auth } from '../firebase';
 
 const menuItems = [
-  { label: 'Dashboard', active: true },
-  { label: 'Respiratory Data', active: false },
-  { label: 'AI Risk Analysis', active: false },
-  { label: 'Reports', active: false },
-  { label: 'Doctor Insights', active: false },
-  { label: 'Settings', active: false },
-  { label: 'Logout', active: false }
+  { label: 'Dashboard', path: '/dashboard' },
+  { label: 'Respiratory Data', path: '/respiratory-data' },
+  { label: 'AI Risk Analysis' },
+  { label: 'Reports' },
+  { label: 'Doctor Insights' },
+  { label: 'Settings' },
+  { label: 'Logout', action: 'logout' }
 ];
 
 const Sidebar = ({ isOpen, onClose }) => {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleItemClick = async (item) => {
+    if (item.action === 'logout') {
+      await signOut(auth);
+      navigate('/auth');
+      return;
+    }
+
+    if (item.path) {
+      navigate(item.path);
+      onClose?.();
+    }
+  };
+
+  const getButtonClass = (item) => {
+    const isActive = Boolean(item.path) && location.pathname === item.path;
+    return isActive
+      ? 'bg-blue-50 text-blue-600 shadow-sm'
+      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800';
+  };
+
   return (
     <>
       <aside className="fixed left-0 top-0 hidden h-screen w-64 shrink-0 border-r border-slate-200 bg-white px-5 py-6 lg:flex lg:flex-col">
@@ -24,11 +50,8 @@ const Sidebar = ({ isOpen, onClose }) => {
             <button
               key={item.label}
               type="button"
-              className={`flex w-full items-center rounded-xl px-4 py-2.5 text-left text-sm font-medium transition ${
-                item.active
-                  ? 'bg-blue-50 text-blue-600 shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
-              }`}
+              onClick={() => handleItemClick(item)}
+              className={`flex w-full items-center rounded-xl px-4 py-2.5 text-left text-sm font-medium transition ${getButtonClass(item)}`}
             >
               {item.label}
             </button>
@@ -68,11 +91,8 @@ const Sidebar = ({ isOpen, onClose }) => {
                 <button
                   key={item.label}
                   type="button"
-                  className={`flex w-full items-center rounded-xl px-4 py-2.5 text-left text-sm font-medium transition ${
-                    item.active
-                      ? 'bg-blue-50 text-blue-600 shadow-sm'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
-                  }`}
+                  onClick={() => handleItemClick(item)}
+                  className={`flex w-full items-center rounded-xl px-4 py-2.5 text-left text-sm font-medium transition ${getButtonClass(item)}`}
                 >
                   {item.label}
                 </button>

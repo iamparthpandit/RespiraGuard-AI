@@ -4,6 +4,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import LandingPage from './LandingPage';
 import AuthPage from './AuthPage';
 import DashboardPage from './DashboardPage';
+import RespiratoryDataPage from './RespiratoryDataPage';
 import { auth } from './firebase';
 
 const ProtectedRoute = ({ user, children }) => {
@@ -45,6 +46,14 @@ function App() {
           element={(
             <ProtectedRoute user={user}>
               <DashboardPage user={user} />
+            </ProtectedRoute>
+          )}
+        />
+        <Route
+          path="/respiratory-data"
+          element={(
+            <ProtectedRoute user={user}>
+              <RespiratoryDataPage user={user} />
             </ProtectedRoute>
           )}
         />
