@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   addDoc,
   collection,
@@ -22,6 +22,10 @@ import SessionTable from './components/SessionTable';
 import SensorDashboard from './components/SensorDashboard';
 import LiveChart from './components/LiveChart';
 import useSensorData from './hooks/useSensorData';
+import {
+  generateAIRecommendation,
+  getRespiratoryPrediction
+} from './services/aiPredictionService';
 
 const formatDisplayDate = (value) => {
   if (!value) return 'N/A';
@@ -110,6 +114,12 @@ const DashboardPage = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [sessions, setSessions] = useState([]);
+  const [riskLevel, setRiskLevel] = useState('');
+  const [aiRecommendation, setAIRecommendation] = useState('');
+  const [sensorData, setSensorData] = useState({});
+  const [predictionError, setPredictionError] = useState('');
+  const lastPredictionAtRef = useRef(0);
+  const isPredictingRef = useRef(false);
   const {
     air_quality,
     humidity,
@@ -163,6 +173,63 @@ const DashboardPage = ({ user }) => {
     loadDashboardData();
   }, [user]);
 
+  useEffect(() => {
+    if (liveLoading) {
+      return;
+    }
+
+    const latestSensorData = {
+      air_quality,
+      humidity,
+      sound,
+      temperature
+    };
+
+    setSensorData(latestSensorData);
+
+    const hasValidSensorValues = Object.values(latestSensorData).some(
+      (value) => Number.isFinite(value) && value !== 0
+    );
+
+    if (!hasValidSensorValues || isPredictingRef.current) {
+      return;
+    }
+
+    const now = Date.now();
+    if (now - lastPredictionAtRef.current < 5000) {
+      return;
+    }
+
+    lastPredictionAtRef.current = now;
+    isPredictingRef.current = true;
+
+    const runPrediction = async () => {
+      try {
+        setPredictionError('');
+        const prediction = await getRespiratoryPrediction(latestSensorData);
+        const predictedRisk = prediction?.risk_level || 'Moderate Risk';
+
+        setRiskLevel(predictedRisk);
+
+        const generatedRecommendation = await generateAIRecommendation(
+          predictedRisk,
+          latestSensorData,
+          prediction?.recommendation
+        );
+
+        setAIRecommendation(generatedRecommendation);
+      } catch (error) {
+        console.error('Prediction pipeline failed:', error);
+        setPredictionError('Prediction service temporarily unavailable.');
+        setAIRecommendation('Prediction service temporarily unavailable.');
+      } finally {
+        isPredictingRef.current = false;
+      }
+    };
+
+    runPrediction();
+  }, [air_quality, humidity, liveLoading, sound, temperature]);
+
   const derivedMetrics = useMemo(() => {
     const latest = sessions[0];
     const profileMetrics = profile?.metrics || {};
@@ -172,11 +239,11 @@ const DashboardPage = ({ user }) => {
       temperature: !liveLoading ? temperature : (latest?.temperature ?? profileMetrics.temperature ?? 0),
       humidity: !liveLoading ? humidity : (latest?.humidity ?? profileMetrics.humidity ?? 0),
       breathingSoundIntensity: !liveLoading ? sound : (latest?.breathingSoundIntensity ?? profileMetrics.breathingSoundIntensity ?? 0),
-      respiratoryRiskLevel: latest?.riskLevel ?? profileMetrics.respiratoryRiskLevel ?? 'Moderate',
+      respiratoryRiskLevel: riskLevel || latest?.riskLevel || profileMetrics.respiratoryRiskLevel || 'Moderate Risk',
       dailyBreathingScore: latest?.breathingScore ?? profileMetrics.dailyBreathingScore ?? 84,
       sessionsRecorded: sessions.length
     };
-  }, [air_quality, humidity, liveLoading, profile, sessions, sound, temperature]);
+  }, [air_quality, humidity, liveLoading, profile, riskLevel, sessions, sound, temperature]);
 
   const profileWithLatestSession = useMemo(() => {
     return {
@@ -240,7 +307,10 @@ const DashboardPage = ({ user }) => {
           <section className="grid gap-4 xl:grid-cols-2">
             <AIInsightCard
               insight={profileWithLatestSession?.aiInsight}
-              riskLevel={derivedMetrics.respiratoryRiskLevel}
+              riskLevel={riskLevel || derivedMetrics.respiratoryRiskLevel}
+              aiRecommendation={aiRecommendation}
+              sensorData={sensorData}
+              predictionError={predictionError}
             />
             <PatientProfileCard profile={profileWithLatestSession} />
           </section>
