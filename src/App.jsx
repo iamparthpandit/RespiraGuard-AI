@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-d
 import { onAuthStateChanged } from 'firebase/auth';
 import LandingPage from './LandingPage';
 import AuthPage from './AuthPage';
-import DashboardPage from './DashboardPage';
+import Dashboard from './Dashboard';
 import { auth } from './firebase';
 
 const ProtectedRoute = ({ user, children }) => {
@@ -44,7 +44,7 @@ function App() {
           path="/dashboard"
           element={(
             <ProtectedRoute user={user}>
-              <DashboardPage user={user} />
+              <Dashboard />
             </ProtectedRoute>
           )}
         />
