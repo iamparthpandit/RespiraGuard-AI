@@ -5,6 +5,7 @@ import LandingPage from './LandingPage';
 import AuthPage from './AuthPage';
 import DashboardPage from './DashboardPage';
 import RespiratoryDataPage from './RespiratoryDataPage';
+import ReportPage from './ReportPage';
 import { auth } from './firebase';
 
 const ProtectedRoute = ({ user, children }) => {
@@ -54,6 +55,14 @@ function App() {
           element={(
             <ProtectedRoute user={user}>
               <RespiratoryDataPage user={user} />
+            </ProtectedRoute>
+          )}
+        />
+        <Route
+          path="/report/:sessionId"
+          element={(
+            <ProtectedRoute user={user}>
+              <ReportPage user={user} />
             </ProtectedRoute>
           )}
         />

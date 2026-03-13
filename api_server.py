@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import pickle
 from pathlib import Path
 from typing import Any, Dict
@@ -13,6 +14,10 @@ from pydantic import BaseModel
 
 
 MODEL_PATH = Path("respiratory_risk_model.pkl")
+
+# Environment configuration
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
+CORS_ORIGINS = [origin.strip() for origin in CORS_ORIGINS]
 
 # Canonical feature order expected by the trained pipeline.
 CANONICAL_FEATURE_ORDER = [
@@ -54,7 +59,7 @@ app = FastAPI(title="RespiraGuard Risk API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

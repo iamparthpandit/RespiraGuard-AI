@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   collection,
   getDocs,
@@ -41,6 +42,7 @@ const RespiratoryDataPage = ({ user }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!user?.uid) {
@@ -113,6 +115,7 @@ const RespiratoryDataPage = ({ user }) => {
                     <th className="px-3 py-3 font-medium">Risk Level</th>
                     <th className="px-3 py-3 font-medium">Status</th>
                     <th className="px-3 py-3 font-medium">AI Insight</th>
+                    <th className="px-3 py-3 font-medium">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -135,11 +138,19 @@ const RespiratoryDataPage = ({ user }) => {
                         <td className="max-w-md px-3 py-3 text-slate-600">
                           {session.aiRecommendation || 'No AI recommendation available for this session.'}
                         </td>
+                        <td className="px-3 py-3">
+                          <button
+                            onClick={() => navigate(`/report/${session.id}`)}
+                            className="inline-flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
+                          >
+                            📄 Report
+                          </button>
+                        </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={6} className="px-3 py-8 text-center text-slate-500">
+                      <td colSpan={7} className="px-3 py-8 text-center text-slate-500">
                         No saved respiratory sessions yet.
                       </td>
                     </tr>
