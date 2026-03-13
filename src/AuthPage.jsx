@@ -115,151 +115,162 @@ const AuthPage = () => {
   };
 
   return (
-    <section className="min-h-screen flex flex-col md:grid md:grid-cols-2">
-      <div className="order-2 md:order-1 flex items-center justify-center p-4 bg-white">
-        <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
-          <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">
-              {mode === 'login' ? 'Welcome Back' : mode === 'signup' ? 'Create Account' : 'Reset Password'}
-            </h1>
-            <p className="text-gray-600 mt-2">
-              {mode === 'login' ? 'Sign in to monitor your respiratory health insights.' : mode === 'signup' ? 'Join RespiraGuard to start monitoring.' : 'Enter your email to reset your password.'}
-            </p>
-          </div>
+    <section className="relative min-h-screen">
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="absolute inset-0 w-full h-full object-cover"
+      >
+        <source src="/src/assets/lung-animation.mp4" type="video/mp4" />
+      </video>
+      <div className="absolute inset-0 bg-white/40 backdrop-blur-sm"></div>
 
-          {error && <p className="text-red-500 text-center mb-4">{error}</p>}
-
-          <form onSubmit={mode === 'login' ? handleLogin : mode === 'signup' ? handleSignup : handlePasswordReset}>
-            {mode === 'signup' && (
-              <div className="mb-4">
-                <label className="block text-gray-700 mb-2">Full Name</label>
-                <div className="flex items-center border rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500">
-                  <span className="mr-2">👤</span>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    className="w-full outline-none"
-                    required
-                  />
-                </div>
-              </div>
-            )}
-
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-2">Email</label>
-              <div className="flex items-center border rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500">
-                <span className="mr-2">📧</span>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  className="w-full outline-none"
-                  required
-                />
-              </div>
+      <div className="relative z-10 min-h-screen flex flex-col md:grid md:grid-cols-2">
+        <div className="flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-white/80 backdrop-blur-md rounded-xl shadow-lg p-8">
+            <div className="text-center mb-6">
+              <h1 className="text-2xl font-bold text-gray-900">
+                {mode === 'login' ? 'Welcome Back' : mode === 'signup' ? 'Create Account' : 'Reset Password'}
+              </h1>
+              <p className="text-gray-600 mt-2">
+                {mode === 'login'
+                  ? 'Sign in to monitor your respiratory health insights.'
+                  : mode === 'signup'
+                  ? 'Join RespiraGuard to start monitoring.'
+                  : 'Enter your email to reset your password.'}
+              </p>
             </div>
 
-            {mode !== 'forgot' && (
-              <>
+            {error && <p className="text-red-500 text-center mb-4">{error}</p>}
+
+            <form onSubmit={mode === 'login' ? handleLogin : mode === 'signup' ? handleSignup : handlePasswordReset}>
+              {mode === 'signup' && (
                 <div className="mb-4">
-                  <label className="block text-gray-700 mb-2">Password</label>
+                  <label className="block text-gray-700 mb-2">Full Name</label>
                   <div className="flex items-center border rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500">
-                    <span className="mr-2">🔒</span>
                     <input
-                      type="password"
-                      name="password"
-                      value={formData.password}
+                      type="text"
+                      name="name"
+                      value={formData.name}
                       onChange={handleInputChange}
-                      className="w-full outline-none"
+                      className="w-full outline-none bg-transparent"
                       required
                     />
                   </div>
                 </div>
+              )}
 
-                {mode === 'signup' && (
+              <div className="mb-4">
+                <label className="block text-gray-700 mb-2">Email</label>
+                <div className="flex items-center border rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500">
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    className="w-full outline-none bg-transparent"
+                    required
+                  />
+                </div>
+              </div>
+
+              {mode !== 'forgot' && (
+                <>
                   <div className="mb-4">
-                    <label className="block text-gray-700 mb-2">Confirm Password</label>
-                      <div className="flex items-center border rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500">
-                      <span className="mr-2">🔒</span>
+                    <label className="block text-gray-700 mb-2">Password</label>
+                    <div className="flex items-center border rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500">
                       <input
                         type="password"
-                        name="confirmPassword"
-                        value={formData.confirmPassword}
+                        name="password"
+                        value={formData.password}
                         onChange={handleInputChange}
-                        className="w-full outline-none"
+                        className="w-full outline-none bg-transparent"
                         required
                       />
                     </div>
                   </div>
-                )}
+
+                  {mode === 'signup' && (
+                    <div className="mb-4">
+                      <label className="block text-gray-700 mb-2">Confirm Password</label>
+                      <div className="flex items-center border rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500">
+
+                        <input
+                          type="password"
+                          name="confirmPassword"
+                          value={formData.confirmPassword}
+                          onChange={handleInputChange}
+                          className="w-full outline-none bg-transparent"
+                          required
+                        />
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {mode === 'login' && (
+                <div className="flex items-center justify-between mb-4">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="mr-2"
+                    />
+                    Remember me
+                  </label>
+                  <button type="button" onClick={() => setMode('forgot')} className="text-blue-500 hover:underline">
+                    Forgot Password?
+                  </button>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg mb-4"
+                disabled={loading}
+              >
+                {loading ? 'Loading...' : mode === 'login' ? 'Sign In' : mode === 'signup' ? 'Create Account' : 'Send Reset Link'}
+              </button>
+            </form>
+
+            {mode === 'login' && (
+              <>
+                <button onClick={handleGoogleSignIn} className="w-full border border-gray-300 py-2 rounded-lg mb-4">
+                  Sign in with Google
+                </button>
+                <p className="text-center">
+                  Don't have an account?{' '}
+                  <button onClick={() => setMode('signup')} className="text-blue-500 hover:underline">
+                    Sign Up
+                  </button>
+                </p>
               </>
             )}
 
-            {mode === 'login' && (
-              <div className="flex items-center justify-between mb-4">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="mr-2"
-                  />
-                  Remember me
-                </label>
-                <button type="button" onClick={() => setMode('forgot')} className="text-blue-500 hover:underline">
-                  Forgot Password?
+            {mode === 'signup' && (
+              <p className="text-center">
+                Already have an account?{' '}
+                <button onClick={() => setMode('login')} className="text-blue-500 hover:underline">
+                  Sign In
                 </button>
-              </div>
+              </p>
             )}
 
-            <button
-              type="submit"
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg mb-4"
-              disabled={loading}
-            >
-              {loading ? 'Loading...' : mode === 'login' ? 'Sign In' : mode === 'signup' ? 'Create Account' : 'Send Reset Link'}
-            </button>
-          </form>
-
-          {mode === 'login' && (
-            <>
-              <button onClick={handleGoogleSignIn} className="w-full border border-gray-300 py-2 rounded-lg mb-4">
-                Sign in with Google
-              </button>
+            {mode === 'forgot' && (
               <p className="text-center">
-                Don't have an account? <button onClick={() => setMode('signup')} className="text-blue-500 hover:underline">Sign Up</button>
+                <button onClick={() => setMode('login')} className="text-blue-500 hover:underline">
+                  Back to Sign In
+                </button>
               </p>
-            </>
-          )}
-
-          {mode === 'signup' && (
-            <p className="text-center">
-              Already have an account? <button onClick={() => setMode('login')} className="text-blue-500 hover:underline">Sign In</button>
-            </p>
-          )}
-
-          {mode === 'forgot' && (
-            <p className="text-center">
-              <button onClick={() => setMode('login')} className="text-blue-500 hover:underline">Back to Sign In</button>
-            </p>
-          )}
+            )}
+          </div>
         </div>
-      </div>
 
-      <div className="order-1 md:order-2 relative">
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover"
-        >
-          <source src="/src/assets/lung-animation.mp4" type="video/mp4" />
-        </video>
-        <div className="absolute inset-0 bg-gradient-to-l from-white via-white/80 to-transparent"></div>
+        <div className="hidden md:block" />
       </div>
     </section>
   );
