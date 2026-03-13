@@ -21,7 +21,7 @@ const Navbar = () => {
             <a href="#contact" className="text-gray-700 hover:text-primary">Contact</a>
           </div>
           <div className="hidden md:flex items-center space-x-4">
-            <button className="text-gray-700 hover:text-primary">Login</button>
+            <Link to="/auth" className="text-gray-700 hover:text-primary">Login</Link>
             <Link to="/auth" className="bg-primary text-white px-4 py-2 rounded-md hover:bg-light-blue">Get Started</Link>
           </div>
           <div className="md:hidden flex items-center">
@@ -45,7 +45,7 @@ const Navbar = () => {
             <a href="#how-it-works" className="block px-3 py-2 text-gray-700 hover:text-primary">How It Works</a>
             <a href="#doctors" className="block px-3 py-2 text-gray-700 hover:text-primary">Doctors</a>
             <a href="#contact" className="block px-3 py-2 text-gray-700 hover:text-primary">Contact</a>
-            <button className="block w-full text-left px-3 py-2 text-gray-700 hover:text-primary">Login</button>
+            <Link to="/auth" className="block w-full text-left px-3 py-2 text-gray-700 hover:text-primary">Login</Link>
             <Link to="/auth" className="block w-full bg-primary text-white px-3 py-2 rounded-md hover:bg-light-blue text-center">Get Started</Link>
           </div>
         </div>

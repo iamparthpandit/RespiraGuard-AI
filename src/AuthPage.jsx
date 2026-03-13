@@ -1,7 +1,16 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from './firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  signInWithPopup,
+  GoogleAuthProvider,
+  setPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence
+} from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 
 const AuthPage = () => {
@@ -26,6 +35,10 @@ const AuthPage = () => {
     setLoading(true);
     setError('');
     try {
+      await setPersistence(
+        auth,
+        rememberMe ? browserLocalPersistence : browserSessionPersistence
+      );
       await signInWithEmailAndPassword(auth, formData.email, formData.password);
       navigate('/');
       // Redirect to dashboard or handle success
@@ -77,7 +90,23 @@ const AuthPage = () => {
   const handleGoogleSignIn = async () => {
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      await setPersistence(
+        auth,
+        rememberMe ? browserLocalPersistence : browserSessionPersistence
+      );
+      const userCredential = await signInWithPopup(auth, provider);
+      const user = userCredential.user;
+      await setDoc(
+        doc(db, 'users', user.uid),
+        {
+          uid: user.uid,
+          name: user.displayName || '',
+          email: user.email || '',
+          photoURL: user.photoURL || '',
+          updatedAt: new Date()
+        },
+        { merge: true }
+      );
       navigate('/');
       // Handle success
     } catch (err) {
