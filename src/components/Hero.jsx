@@ -26,7 +26,7 @@ const Hero = () => {
               Monitor environmental triggers, breathing patterns, and respiratory health in real time with predictive insights and doctor-ready reports.
             </p>
             <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-              <Link to="/auth" className="bg-primary text-white px-6 py-3 rounded-md hover:bg-light-blue transition duration-300 text-center">
+              <Link to="/dashboard" className="bg-primary text-white px-6 py-3 rounded-md hover:bg-light-blue transition duration-300 text-center">
                 Get Started
               </Link>
               <button className="border border-primary text-primary px-6 py-3 rounded-md hover:bg-primary hover:text-white transition duration-300">
