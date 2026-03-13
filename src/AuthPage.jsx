@@ -13,6 +13,31 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 
+const getAuthErrorMessage = (err) => {
+  const code = err?.code || '';
+
+  switch (code) {
+    case 'auth/operation-not-allowed':
+      return 'Email/Password sign-up is disabled in Firebase. Enable it in Firebase Console > Authentication > Sign-in method.';
+    case 'auth/email-already-in-use':
+      return 'This email is already registered. Please sign in instead.';
+    case 'auth/invalid-email':
+      return 'Please enter a valid email address.';
+    case 'auth/weak-password':
+      return 'Password is too weak. Use at least 6 characters.';
+    case 'auth/invalid-credential':
+      return 'Invalid credentials. Please check your email and password.';
+    case 'auth/user-not-found':
+      return 'No account found with this email.';
+    case 'auth/wrong-password':
+      return 'Incorrect password. Please try again.';
+    case 'auth/popup-closed-by-user':
+      return 'Google sign-in was cancelled before completion.';
+    default:
+      return err?.message || 'Something went wrong. Please try again.';
+  }
+};
+
 const AuthPage = () => {
   const navigate = useNavigate();
   const [mode, setMode] = useState('login'); // 'login', 'signup', 'forgot'
@@ -40,10 +65,10 @@ const AuthPage = () => {
         rememberMe ? browserLocalPersistence : browserSessionPersistence
       );
       await signInWithEmailAndPassword(auth, formData.email, formData.password);
-      navigate('/');
+      navigate('/dashboard');
       // Redirect to dashboard or handle success
     } catch (err) {
-      setError(err.message);
+      setError(getAuthErrorMessage(err));
     }
     setLoading(false);
   };
@@ -66,10 +91,10 @@ const AuthPage = () => {
         email: formData.email,
         createdAt: new Date()
       });
-      navigate('/');
+      navigate('/dashboard');
       // Redirect or handle success
     } catch (err) {
-      setError(err.message);
+      setError(getAuthErrorMessage(err));
     }
     setLoading(false);
   };
@@ -82,7 +107,7 @@ const AuthPage = () => {
       await sendPasswordResetEmail(auth, formData.email);
       setError('Reset link sent to your email');
     } catch (err) {
-      setError(err.message);
+      setError(getAuthErrorMessage(err));
     }
     setLoading(false);
   };
@@ -107,10 +132,10 @@ const AuthPage = () => {
         },
         { merge: true }
       );
-      navigate('/');
+      navigate('/dashboard');
       // Handle success
     } catch (err) {
-      setError(err.message);
+      setError(getAuthErrorMessage(err));
     }
   };
 
