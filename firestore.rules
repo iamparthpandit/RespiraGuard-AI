@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Single-user app mode: allow full read/write for this project.
+    // Change this before production.
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
