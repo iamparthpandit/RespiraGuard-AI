@@ -4,10 +4,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 const menuItems = [
   { label: 'Dashboard', path: '/dashboard' },
   { label: 'Respiratory Data', path: '/respiratory-data' },
-  { label: 'AI Risk Analysis' },
   { label: 'Reports' },
   { label: 'Doctor Insights' },
-  { label: 'Settings' },
   { label: 'Logout', action: 'logout' }
 ];
 
